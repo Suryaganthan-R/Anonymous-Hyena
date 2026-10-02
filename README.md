@@ -21,14 +21,9 @@ Currently, two official plugins are available:
 
 The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
 ## Contributions and Staff Access
 
 Signed-in users can submit public GitHub repositories owned by their connected GitHub account. Submissions remain private to staff while pending and are listed publicly only after approval. Review notes on approvals or rejections are delivered to the submitter in the navbar notifications. Staff can hide or restore approved projects without deleting them, or permanently delete an approved project.
-
-Open `/admin` for the separate staff sign-in and workspace. The first verified Google sign-in for `mistermanuniq@gmail.com` receives the protected `superadmin` role. Managers can review and approve or reject submissions. Admins can review submissions and manage user, manager, and admin roles. Admins cannot change the superadmin account or their own role.
 
 Signed-in users can edit their display name, contact email, and profile bio. The verified Google sign-in email is read-only.
 
