@@ -4,6 +4,9 @@ import { AppDatabase } from './database.js'
 import { handleApiRequest } from './api.js'
 
 let database
+const originalGithubOrg = process.env.GITHUB_ORG
+const originalGithubOrgToken = process.env.GITHUB_ORG_TOKEN
+const originalFetch = globalThis.fetch
 const sessions = new Map([
   ['super-session', 'super-id'],
   ['admin-session', 'admin-id'],
@@ -46,6 +49,23 @@ beforeEach(() => {
 })
 
 afterEach(() => database.close())
+
+afterEach(() => {
+  globalThis.fetch = originalFetch
+  if (originalGithubOrg === undefined) delete process.env.GITHUB_ORG
+  else process.env.GITHUB_ORG = originalGithubOrg
+  if (originalGithubOrgToken === undefined) delete process.env.GITHUB_ORG_TOKEN
+  else process.env.GITHUB_ORG_TOKEN = originalGithubOrgToken
+})
+
+const createApprovedProject = (id = 'organization-project') => {
+  database.createSubmission({
+    id, repoOwner: 'user', repoName: 'scanner', repoUrl: 'https://github.com/user/scanner',
+    description: 'A security scanner', repositoryDescription: '', category: 'Tool', defaultBranch: 'main',
+    pushedAt: new Date().toISOString(), submittedBy: 'user-id',
+  })
+  database.reviewSubmission(id, 'manager-id', 'approved', '')
+}
 
 test('manager can review submissions but cannot access the user directory', async () => {
   const project = {
@@ -251,4 +271,73 @@ test('staff can hide and restore approved projects, then delete them', async () 
   const deleted = await callApi({ method: 'DELETE', path: '/api/admin/submissions?id=visible-project', session: 'manager-session' })
   assert.equal(deleted.status, 200)
   assert.equal((await callApi({ path: '/api/projects' })).body.projects.length, 0)
+})
+
+test('only staff can synchronize an approved project', async () => {
+  createApprovedProject()
+  const anonymous = await callApi({ method: 'POST', path: '/api/admin/submissions/organization-project/github-sync' })
+  const user = await callApi({ method: 'POST', path: '/api/admin/submissions/organization-project/github-sync', session: 'user-session' })
+  assert.equal(anonymous.status, 401)
+  assert.equal(user.status, 403)
+})
+
+test('synchronization requires an approved project and organization configuration', async () => {
+  database.createSubmission({
+    id: 'pending-organization-project', repoOwner: 'user', repoName: 'scanner', repoUrl: 'https://github.com/user/scanner',
+    description: 'A scanner', repositoryDescription: '', category: 'Tool', defaultBranch: 'main',
+    pushedAt: new Date().toISOString(), submittedBy: 'user-id',
+  })
+  const pending = await callApi({ method: 'POST', path: '/api/admin/submissions/pending-organization-project/github-sync', session: 'manager-session' })
+  assert.equal(pending.status, 409)
+
+  createApprovedProject('unconfigured-project')
+  delete process.env.GITHUB_ORG
+  delete process.env.GITHUB_ORG_TOKEN
+  const unconfigured = await callApi({ method: 'POST', path: '/api/admin/submissions/unconfigured-project/github-sync', session: 'manager-session' })
+  assert.equal(unconfigured.status, 503)
+  assert.equal(database.getSubmission('unconfigured-project').githubSyncStatus, 'failed')
+})
+
+test('successful synchronization creates a README, stores the repository, and reuses it', async () => {
+  createApprovedProject()
+  process.env.GITHUB_ORG = 'Anonymous-Hyena'
+  process.env.GITHUB_ORG_TOKEN = 'test-token'
+  let calls = 0
+  globalThis.fetch = async (url, options) => {
+    calls += 1
+    if (calls === 1) {
+      assert.equal(url, 'https://api.github.com/orgs/Anonymous-Hyena/repos')
+      assert.equal(options.method, 'POST')
+      assert.match(options.headers.authorization, /^Bearer test-token$/)
+      assert.equal(JSON.parse(options.body).auto_init, false)
+      return { ok: true, status: 201, async json() { return { id: 42, name: 'scanner', html_url: 'https://github.com/Anonymous-Hyena/scanner', default_branch: 'main' } } }
+    }
+    assert.equal(url, 'https://api.github.com/repos/Anonymous-Hyena/scanner/contents/README.md')
+    assert.equal(options.method, 'PUT')
+    assert.match(Buffer.from(JSON.parse(options.body).content, 'base64').toString(), /Original repository: https:\/\/github.com\/user\/scanner/)
+    return { ok: true, status: 201, async json() { return {} } }
+  }
+
+  const synced = await callApi({ method: 'POST', path: '/api/admin/submissions/organization-project/github-sync', session: 'manager-session' })
+  assert.equal(synced.status, 201)
+  assert.equal(synced.body.submission.githubSyncStatus, 'synced')
+  assert.equal(synced.body.submission.githubOrgRepoUrl, 'https://github.com/Anonymous-Hyena/scanner')
+
+  const repeated = await callApi({ method: 'POST', path: '/api/admin/submissions/organization-project/github-sync', session: 'admin-session' })
+  assert.equal(repeated.status, 200)
+  assert.equal(repeated.body.alreadySynced, true)
+  assert.equal(calls, 2)
+})
+
+test('GitHub failures are sanitized and leave the project retryable', async () => {
+  createApprovedProject()
+  process.env.GITHUB_ORG = 'Anonymous-Hyena'
+  process.env.GITHUB_ORG_TOKEN = 'test-token'
+  globalThis.fetch = async () => ({ ok: false, status: 403, async json() { return { message: 'sensitive GitHub details' } } })
+
+  const result = await callApi({ method: 'POST', path: '/api/admin/submissions/organization-project/github-sync', session: 'admin-session' })
+  assert.equal(result.status, 502)
+  assert.equal(result.body.error, 'The GitHub organization token cannot create repositories.')
+  assert.equal(database.getSubmission('organization-project').githubSyncStatus, 'failed')
+  assert.doesNotMatch(JSON.stringify(result.body), /sensitive GitHub details/)
 })
