@@ -8,6 +8,12 @@ import ProfileDialog from './ProfileDialog'
 import { requestJson } from './api'
 import hyenaImage from '../hyena.png'
 
+const scrollToSection = (event, sectionId) => {
+  event.preventDefault()
+  window.history.replaceState(null, '', window.location.pathname)
+  document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' })
+}
+
 function BackgroundNetwork() {
   const canvasRef = useRef(null)
 
@@ -304,7 +310,10 @@ function Header({ user, authError, onSignIn, onConnectGithub, onSignOut, onContr
         <div className="brand-copy"><span className="brand-name">ANONYMOUS HYENA</span><span className="brand-tag">Student Cybersecurity Suite</span></div>
       </a>
       <nav className="main-nav" aria-label="Main navigation">
-        {navItems.filter((item) => !['Home', 'Documentation', 'Contribute'].includes(item)).map((item) => <a key={item} href={item === 'Projects' ? '#project-discovery' : '#home'} className="nav-link">{item}</a>)}
+        {navItems.filter((item) => !['Home', 'Documentation', 'Contribute'].includes(item)).map((item) => {
+          const sectionId = item === 'Projects' ? 'project-discovery' : 'home'
+          return <a key={item} href={`#${sectionId}`} onClick={(event) => scrollToSection(event, sectionId)} className="nav-link">{item}</a>
+        })}
       </nav>
       <div className="nav-actions">
         {user ? (
@@ -333,7 +342,7 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('recent')
-  const [selectedProjectId, setSelectedProjectId] = useState(() => decodeURIComponent(window.location.hash.slice(1)))
+  const [selectedProjectId, setSelectedProjectId] = useState('')
   const [approvedProjects, setApprovedProjects] = useState([])
   const [user, setUser] = useState(null)
   const [userLoading, setUserLoading] = useState(true)
@@ -360,6 +369,7 @@ function App() {
     .finally(() => setUserLoading(false))
 
   useEffect(() => {
+    if (window.location.hash || window.location.search) window.history.replaceState(null, '', window.location.pathname)
     refreshUser()
     requestJson('/api/projects').then((result) => setApprovedProjects(Array.isArray(result.projects) ? result.projects : [])).catch(() => setApprovedProjects([]))
   }, [])
@@ -375,12 +385,12 @@ function App() {
   const selectedProject = projects.find((project) => (project.id || project.name) === selectedProjectId)
   const openProject = (project) => {
     const projectId = project.id || project.name
-    window.location.assign(`#${encodeURIComponent(projectId)}`)
     setSelectedProjectId(projectId)
   }
   const closeProject = () => {
-    window.location.assign('#project-discovery')
+    window.history.replaceState(null, '', window.location.pathname)
     setSelectedProjectId('')
+    requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById('project-discovery')?.scrollIntoView({ behavior: 'smooth' })))
   }
   const categories = ['All', ...new Set([...projectCategories, ...approvedProjects.map((project) => project.category)])]
 
@@ -424,7 +434,7 @@ function App() {
               <div className="eyebrow-row"><span className="eyebrow-dot" /><span>Build · Contribute · Improve · Continue</span></div>
               <h1>Anonymous Hyena<span>Where student-built security projects live, evolve, and continue.</span></h1>
               <p>A cybersecurity ecosystem where research, tooling, and operational knowledge are preserved across student generations instead of disappearing at the end of a semester.</p>
-              <div className="hero-actions"><a className="primary-button" href="#project-discovery">Explore Projects</a><button type="button" className="secondary-button" onClick={() => setContributionOpen(true)}>Contribute</button></div>
+              <div className="hero-actions"><a className="primary-button" href="#project-discovery" onClick={(event) => scrollToSection(event, 'project-discovery')}>Explore Projects</a><button type="button" className="secondary-button" onClick={() => setContributionOpen(true)}>Contribute</button></div>
             </div>
             <div className="hero-panel" aria-label="Hyena network overview">
               <div className="panel-header"><span className="status-pill live">LIVE</span><span className="panel-label">HYENA NETWORK</span></div>
@@ -435,7 +445,7 @@ function App() {
 
           <section className="section-block story-block"><div className="section-header narrow"><span className="section-kicker">HOW HYENA GROWS</span><h2>From student work to lasting project continuity.</h2></div>{growthSteps.length ? <div className="growth-flow">{growthSteps.map((step, index) => <div key={step} className="growth-step"><span className="step-node" /><span className="step-label">{step}</span>{index < growthSteps.length - 1 && <span className="step-arrow">↓</span>}</div>)}</div> : <div className="empty-state-card">The project lifecycle will be published here as community projects are reviewed and approved.</div>}</section>
 
-          <section className="section-block showcase-block"><div className="section-header split"><div><span className="section-kicker">PROJECT SHOWCASE</span><h2>Cybersecurity tools built for the next student generation.</h2></div><a href="#project-discovery" className="text-link">Browse all projects</a></div>{highlights.length ? <div className="project-grid">{highlights.map((project) => <article key={project.id || project.name} className="project-card"><div className="card-top"><div className="project-icon"><span /></div><span className="status-badge">{project.status || 'Published'}</span></div><div className="project-meta"><h3>{project.name}</h3><p>{project.description}</p></div><div className="card-tags"><span>{project.category}</span><span>{project.version}</span></div><div className="card-details"><span>{project.maintainer}</span><span>{project.updated}</span></div><button type="button" className="card-button" onClick={() => openProject(project)}>View project →</button></article>)}</div> : <div className="empty-state-card">Community projects appear here after review and approval.</div>}</section>
+          <section className="section-block showcase-block"><div className="section-header split"><div><span className="section-kicker">PROJECT SHOWCASE</span><h2>Cybersecurity tools built for the next student generation.</h2></div><a href="#project-discovery" onClick={(event) => scrollToSection(event, 'project-discovery')} className="text-link">Browse all projects</a></div>{highlights.length ? <div className="project-grid">{highlights.map((project) => <article key={project.id || project.name} className="project-card"><div className="card-top"><div className="project-icon"><span /></div><span className="status-badge">{project.status || 'Published'}</span></div><div className="project-meta"><h3>{project.name}</h3><p>{project.description}</p></div><div className="card-tags"><span>{project.category}</span><span>{project.version}</span></div><div className="card-details"><span>{project.maintainer}</span><span>{project.updated}</span></div><button type="button" className="card-button" onClick={() => openProject(project)}>View project →</button></article>)}</div> : <div className="empty-state-card">Community projects appear here after review and approval.</div>}</section>
 
           <section id="project-discovery" className="section-block discovery-panel"><div className="section-header split"><div><span className="section-kicker">EXPLORE PROJECTS</span><h2>Project discovery for student-driven research and operations.</h2></div><div className="result-pill">{filteredProjects.length} projects</div></div><div className="project-toolbar"><label className="search-field" htmlFor="project-search"><span className="sr-only">Search projects</span><input id="project-search" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search projects, categories, or teams" /></label><label className="sort-field" htmlFor="project-sort"><span>Sort</span><select id="project-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="recent">Most recent</option><option value="name">Alphabetical</option><option value="contributors">Contributors</option></select></label></div><div className="filter-list showcase-filters">{categories.map((category) => <button key={category} type="button" className={`filter-chip ${selectedCategory === category ? 'is-active' : ''}`} onClick={() => setSelectedCategory(category)}>{category}</button>)}</div>{filteredProjects.length ? <div className="catalog-grid">{filteredProjects.map((project, index) => <article key={project.id || project.name} className={`catalog-card accent-${project.accent || (index % 2 ? 'cyan' : 'violet')}`}><div className="catalog-header"><div className="project-icon small"><span /></div><span className="status-badge">{project.status || 'Published'}</span></div><div className="catalog-main"><div className="catalog-row"><span className="mini-label">{project.category}</span><span className="version-pill">{project.version}</span></div><h3>{project.name}</h3><p>{project.description}</p></div><div className="catalog-meta"><span>{project.maintainer}</span><span>{project.contributors || 0} contributors</span></div><div className="catalog-footer"><span>{new Date(project.updated).toLocaleDateString()}</span><button type="button" className="card-button" onClick={() => openProject(project)}>View project</button></div></article>)}</div> : <div className="empty-state-card">No projects have been published yet. Share a public GitHub project for review.</div>}</section>
         </main>
