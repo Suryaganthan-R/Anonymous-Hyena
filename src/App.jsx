@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import './Workflow.css'
-import { navItems, stats, growthSteps, projectCategories, projectCatalog } from './data/siteData'
+import { navItems, stats, projectCategories, projectCatalog } from './data/siteData'
 import AdminPortal from './AdminPortal'
 import ContributionDialog from './ContributionDialog'
 import ProfileDialog from './ProfileDialog'
@@ -446,8 +446,6 @@ function App() {
               <div className="panel-stats">{stats.length ? stats.map((stat) => <div key={stat.label} className="stat-box"><strong>{stat.value}</strong><span>{stat.label}</span></div>) : <div className="empty-state-box">{approvedProjects.length} community projects published</div>}</div>
             </div>
           </section>
-
-          <section className="section-block story-block"><div className="section-header narrow"><span className="section-kicker">HOW HYENA GROWS</span><h2>From student work to lasting project continuity.</h2></div>{growthSteps.length ? <div className="growth-flow">{growthSteps.map((step, index) => <div key={step} className="growth-step"><span className="step-node" /><span className="step-label">{step}</span>{index < growthSteps.length - 1 && <span className="step-arrow">↓</span>}</div>)}</div> : <div className="empty-state-card">The project lifecycle will be published here as community projects are reviewed and approved.</div>}</section>
 
           <section className="section-block showcase-block"><div className="section-header split"><div><span className="section-kicker">PROJECT SHOWCASE</span><h2>Cybersecurity tools built for the next student generation.</h2></div><a href="#project-discovery" onClick={(event) => scrollToSection(event, 'project-discovery')} className="text-link">Browse all projects</a></div>{highlights.length ? <div className="project-grid">{highlights.map((project) => <article key={project.id || project.name} className="project-card"><div className="card-top"><div className="project-icon"><span /></div><span className="status-badge">{project.status || 'Published'}</span></div><div className="project-meta"><h3>{project.name}</h3><p>{project.description}</p></div><div className="card-tags"><span>{project.category}</span><span>{project.version}</span></div><div className="card-details"><span>{project.maintainer}</span><span>{project.updated}</span></div><button type="button" className="card-button" onClick={() => openProject(project)}>View project →</button></article>)}</div> : <div className="empty-state-card">Community projects appear here after review and approval.</div>}</section>
 
