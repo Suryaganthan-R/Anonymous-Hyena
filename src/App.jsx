@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import './Workflow.css'
-import { navItems, stats, growthSteps, projectHighlights, projectCategories, projectCatalog } from './data/siteData'
+import { navItems, stats, growthSteps, projectCategories, projectCatalog } from './data/siteData'
 import AdminPortal from './AdminPortal'
 import ContributionDialog from './ContributionDialog'
 import ProfileDialog from './ProfileDialog'
@@ -342,6 +342,7 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('recent')
+  const [projectPage, setProjectPage] = useState(1)
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const [approvedProjects, setApprovedProjects] = useState([])
   const [user, setUser] = useState(null)
@@ -394,7 +395,7 @@ function App() {
   }
   const categories = ['All', ...new Set([...projectCategories, ...approvedProjects.map((project) => project.category)])]
 
-  const filteredProjects = useMemo(() => {
+  const allFilteredProjects = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
     const results = projects.filter((project) => {
       const matchesCategory = selectedCategory === 'All' || project.category === selectedCategory
@@ -407,6 +408,9 @@ function App() {
       return new Date(b.updated) - new Date(a.updated)
     })
   }, [projects, searchQuery, selectedCategory, sortBy])
+  const projectPageSize = 4
+  const projectPageCount = Math.ceil(allFilteredProjects.length / projectPageSize)
+  const filteredProjects = allFilteredProjects.slice((projectPage - 1) * projectPageSize, projectPage * projectPageSize)
 
   if (isAdminRoute) {
     return <AdminPortal
@@ -418,7 +422,7 @@ function App() {
     />
   }
 
-  const highlights = projectHighlights.length ? projectHighlights : approvedProjects.slice(0, 3)
+  const highlights = approvedProjects.filter((project) => project.featured)
 
   return (
     <div className="page-shell">
@@ -447,7 +451,12 @@ function App() {
 
           <section className="section-block showcase-block"><div className="section-header split"><div><span className="section-kicker">PROJECT SHOWCASE</span><h2>Cybersecurity tools built for the next student generation.</h2></div><a href="#project-discovery" onClick={(event) => scrollToSection(event, 'project-discovery')} className="text-link">Browse all projects</a></div>{highlights.length ? <div className="project-grid">{highlights.map((project) => <article key={project.id || project.name} className="project-card"><div className="card-top"><div className="project-icon"><span /></div><span className="status-badge">{project.status || 'Published'}</span></div><div className="project-meta"><h3>{project.name}</h3><p>{project.description}</p></div><div className="card-tags"><span>{project.category}</span><span>{project.version}</span></div><div className="card-details"><span>{project.maintainer}</span><span>{project.updated}</span></div><button type="button" className="card-button" onClick={() => openProject(project)}>View project →</button></article>)}</div> : <div className="empty-state-card">Community projects appear here after review and approval.</div>}</section>
 
-          <section id="project-discovery" className="section-block discovery-panel"><div className="section-header split"><div><span className="section-kicker">EXPLORE PROJECTS</span><h2>Project discovery for student-driven research and operations.</h2></div><div className="result-pill">{filteredProjects.length} projects</div></div><div className="project-toolbar"><label className="search-field" htmlFor="project-search"><span className="sr-only">Search projects</span><input id="project-search" type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search projects, categories, or teams" /></label><label className="sort-field" htmlFor="project-sort"><span>Sort</span><select id="project-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="recent">Most recent</option><option value="name">Alphabetical</option><option value="contributors">Contributors</option></select></label></div><div className="filter-list showcase-filters">{categories.map((category) => <button key={category} type="button" className={`filter-chip ${selectedCategory === category ? 'is-active' : ''}`} onClick={() => setSelectedCategory(category)}>{category}</button>)}</div>{filteredProjects.length ? <div className="catalog-grid">{filteredProjects.map((project, index) => <article key={project.id || project.name} className={`catalog-card accent-${project.accent || (index % 2 ? 'cyan' : 'violet')}`}><div className="catalog-header"><div className="project-icon small"><span /></div><span className="status-badge">{project.status || 'Published'}</span></div><div className="catalog-main"><div className="catalog-row"><span className="mini-label">{project.category}</span><span className="version-pill">{project.version}</span></div><h3>{project.name}</h3><p>{project.description}</p></div><div className="catalog-meta"><span>{project.maintainer}</span><span>{project.contributors || 0} contributors</span></div><div className="catalog-footer"><span>{new Date(project.updated).toLocaleDateString()}</span><button type="button" className="card-button" onClick={() => openProject(project)}>View project</button></div></article>)}</div> : <div className="empty-state-card">No projects have been published yet. Share a public GitHub project for review.</div>}</section>
+          <section id="project-discovery" className="section-block discovery-panel"><div className="section-header split"><div><span className="section-kicker">EXPLORE PROJECTS</span><h2>Project discovery for student-driven research and operations.</h2></div><div className="result-pill">{allFilteredProjects.length} projects</div></div><div className="project-toolbar"><label className="search-field" htmlFor="project-search"><span className="sr-only">Search projects</span><input id="project-search" type="search" value={searchQuery} onChange={(event) => { setSearchQuery(event.target.value); setProjectPage(1) }} placeholder="Search projects, categories, or teams" /></label><label className="sort-field" htmlFor="project-sort"><span>Sort</span><select id="project-sort" value={sortBy} onChange={(event) => { setSortBy(event.target.value); setProjectPage(1) }}>
+        <option value="recent">Most recent</option>
+        <option value="name">Alphabetical</option>
+        <option value="contributors">Contributors</option>
+      </select></label></div><div className="filter-list showcase-filters">{categories.map((category) => <button key={category} type="button" className={`filter-chip ${selectedCategory === category ? 'is-active' : ''}`} onClick={() => { setSelectedCategory(category); setProjectPage(1) }}>{category}</button>)}</div>{filteredProjects.length ? <div className="catalog-grid">{filteredProjects.map((project, index) => <article key={project.id || project.name} className={`catalog-card accent-${project.accent || (index % 2 ? 'cyan' : 'violet')}`}><div className="catalog-header"><div className="project-icon small"><span /></div><span className="status-badge">{project.status || 'Published'}</span></div><div className="catalog-main"><div className="catalog-row"><span className="mini-label">{project.category}</span><span className="version-pill">{project.version}</span></div><h3>{project.name}</h3><p>{project.description}</p></div><div className="catalog-meta"><span>{project.maintainer}</span><span>{project.contributors || 0} contributors</span></div><div className="catalog-footer"><span>{new Date(project.updated).toLocaleDateString()}</span><button type="button" className="card-button" onClick={() => openProject(project)}>View project</button></div></article>)}</div> : <div className="empty-state-card">No projects have been published yet. Share a public GitHub project for review.</div>}</section>
+          {projectPageCount > 1 && <nav className="project-pagination" aria-label="Project pages"><button type="button" className="secondary-button" disabled={projectPage === 1} onClick={() => setProjectPage((page) => page - 1)}>Previous</button><span>Page {projectPage} of {projectPageCount}</span><button type="button" className="secondary-button" disabled={projectPage === projectPageCount} onClick={() => setProjectPage((page) => page + 1)}>Next</button></nav>}
         </main>
       )}
       <footer className="site-footer"><a href="/admin">Staff sign in</a><span>Anonymous Hyena</span></footer>

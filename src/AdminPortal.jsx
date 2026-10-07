@@ -17,7 +17,7 @@ function TimedNotice({ message }) {
   return visible ? <div className="admin-notice" role="status">{message}</div> : null
 }
 
-function AdminSubmission({ submission, onReview, onToggleHidden, onDelete }) {
+function AdminSubmission({ submission, onReview, onToggleHidden, onToggleFeatured, isAdmin, onDelete }) {
   const [note, setNote] = useState(submission.reviewNote || '')
   const [saving, setSaving] = useState(false)
 
@@ -51,6 +51,7 @@ function AdminSubmission({ submission, onReview, onToggleHidden, onDelete }) {
           {submission.reviewNote && <p className="review-note">Review note: {submission.reviewNote}</p>}
           <div className="dialog-actions">
             <button type="button" className="secondary-button" onClick={() => onToggleHidden(submission)}>{submission.hidden ? 'Restore project' : 'Hide project'}</button>
+            {isAdmin && <button type="button" className="secondary-button" onClick={() => onToggleFeatured(submission)}>{submission.featured ? 'Remove from showcase' : 'Add to showcase'}</button>}
             <button type="button" className="danger-button" onClick={() => onDelete(submission)}>Delete project</button>
           </div>
         </div>
@@ -116,6 +117,21 @@ function AdminPortal({ user, loading, onSignIn, onSignOut, onUserUpdated }) {
       })
       setSubmissions((current) => current.map((item) => item.id === submission.id ? result.submission : item))
       setNotice(result.submission.hidden ? 'Project hidden from the public site.' : 'Project restored to the public site.')
+    } catch (cause) {
+      setError(cause.message)
+    }
+  }
+
+  const toggleFeatured = async (submission) => {
+    setError('')
+    setNotice('')
+    try {
+      const result = await requestJson('/api/admin/submissions/showcase', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: submission.id, featured: !submission.featured }),
+      })
+      setSubmissions((current) => current.map((item) => item.id === submission.id ? result.submission : item))
+      setNotice(result.submission.featured ? 'Project added to Showcase.' : 'Project removed from Showcase.')
     } catch (cause) {
       setError(cause.message)
     }
@@ -241,7 +257,7 @@ function AdminPortal({ user, loading, onSignIn, onSignOut, onUserUpdated }) {
               <div className="admin-filters" aria-label="Filter submissions">
                 {reviewFilters.map((value) => <button key={value} type="button" className={filter === value ? 'is-active' : ''} onClick={() => setFilter(value)}>{value}</button>)}
               </div>
-              <div className="admin-list">{visibleSubmissions.length ? visibleSubmissions.map((submission) => <AdminSubmission key={submission.id} submission={submission} onReview={reviewSubmission} onToggleHidden={toggleHidden} onDelete={deleteSubmission} />) : <div className="empty-state-card">No {filter === 'all' ? '' : `${filter} `}submissions.</div>}</div>
+              <div className="admin-list">{visibleSubmissions.length ? visibleSubmissions.map((submission) => <AdminSubmission key={submission.id} submission={submission} onReview={reviewSubmission} onToggleHidden={toggleHidden} onToggleFeatured={toggleFeatured} isAdmin={adminRoles.has(user.role)} onDelete={deleteSubmission} />) : <div className="empty-state-card">No {filter === 'all' ? '' : `${filter} `}submissions.</div>}</div>
             </section>
           ) : (
             <section className="admin-section">

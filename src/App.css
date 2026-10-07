@@ -805,6 +805,24 @@ button {
   gap: 18px;
 }
 
+.project-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.project-pagination span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.project-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .catalog-card {
   display: flex;
   flex-direction: column;
