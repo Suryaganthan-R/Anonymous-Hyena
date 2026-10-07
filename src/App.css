@@ -740,8 +740,10 @@ button {
 
 .result-pill {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
+  width: max-content;
   min-height: 42px;
   padding: 0.55rem 0.9rem;
   border: 1px solid rgba(125, 211, 252, 0.2);
@@ -751,6 +753,7 @@ button {
   font-size: 0.72rem;
   letter-spacing: 0.08rem;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .project-toolbar {
