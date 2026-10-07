@@ -41,6 +41,11 @@ const toSubmission = (row) => row && ({
   submitterGithub: row.submitter_github,
   reviewerId: row.reviewer_id,
   reviewNote: row.review_note,
+  githubOrgRepoId: row.github_org_repo_id,
+  githubOrgRepoName: row.github_org_repo_name,
+  githubOrgRepoUrl: row.github_org_repo_url,
+  githubSyncStatus: row.github_sync_status,
+  githubSyncedAt: row.github_synced_at,
   hidden: Boolean(row.hidden),
   featured: Boolean(row.featured),
   createdAt: row.created_at,
@@ -124,6 +129,21 @@ export class AppDatabase {
     }
     if (!submissionColumns.some((column) => column.name === 'featured')) {
       this.connection.exec('ALTER TABLE submissions ADD COLUMN featured INTEGER NOT NULL DEFAULT 0')
+    }
+    if (!submissionColumns.some((column) => column.name === 'github_org_repo_id')) {
+      this.connection.exec('ALTER TABLE submissions ADD COLUMN github_org_repo_id TEXT')
+    }
+    if (!submissionColumns.some((column) => column.name === 'github_org_repo_name')) {
+      this.connection.exec('ALTER TABLE submissions ADD COLUMN github_org_repo_name TEXT')
+    }
+    if (!submissionColumns.some((column) => column.name === 'github_org_repo_url')) {
+      this.connection.exec('ALTER TABLE submissions ADD COLUMN github_org_repo_url TEXT')
+    }
+    if (!submissionColumns.some((column) => column.name === 'github_sync_status')) {
+      this.connection.exec("ALTER TABLE submissions ADD COLUMN github_sync_status TEXT NOT NULL DEFAULT 'not_synced'")
+    }
+    if (!submissionColumns.some((column) => column.name === 'github_synced_at')) {
+      this.connection.exec('ALTER TABLE submissions ADD COLUMN github_synced_at TEXT')
     }
   }
 
@@ -224,6 +244,35 @@ export class AppDatabase {
       WHERE id = ? AND status = 'pending'
     `).run(status, reviewerId, reviewNote, new Date().toISOString(), id)
     return result.changes ? this.listSubmissions('all').find((submission) => submission.id === id) : null
+  }
+
+  getSubmission(id) {
+    const row = this.connection.prepare(`
+      SELECT s.*, u.name AS submitter_name, u.email AS submitter_email, u.github_login AS submitter_github
+      FROM submissions s JOIN users u ON u.google_id = s.submitted_by WHERE s.id = ?
+    `).get(id)
+    return toSubmission(row)
+  }
+
+  claimGithubSync(id) {
+    const result = this.connection.prepare(`
+      UPDATE submissions SET github_sync_status = 'syncing'
+      WHERE id = ? AND status = 'approved' AND github_sync_status IN ('not_synced', 'failed')
+    `).run(id)
+    return result.changes > 0
+  }
+
+  saveGithubSync(id, repository) {
+    this.connection.prepare(`
+      UPDATE submissions SET github_org_repo_id = ?, github_org_repo_name = ?,
+        github_org_repo_url = ?, github_sync_status = 'synced', github_synced_at = ?
+      WHERE id = ?
+    `).run(repository.id, repository.name, repository.url, new Date().toISOString(), id)
+    return this.getSubmission(id)
+  }
+
+  markGithubSyncFailed(id) {
+    this.connection.prepare("UPDATE submissions SET github_sync_status = 'failed' WHERE id = ? AND github_sync_status = 'syncing'").run(id)
   }
 
   setSubmissionHidden(id, hidden) {

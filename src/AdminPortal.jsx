@@ -17,7 +17,7 @@ function TimedNotice({ message }) {
   return visible ? <div className="admin-notice" role="status">{message}</div> : null
 }
 
-function AdminSubmission({ submission, onReview, onToggleHidden, onToggleFeatured, isAdmin, onDelete }) {
+function AdminSubmission({ submission, onReview, onToggleHidden, onToggleFeatured, isAdmin, onDelete, onSync }) {
   const [note, setNote] = useState(submission.reviewNote || '')
   const [saving, setSaving] = useState(false)
 
@@ -49,7 +49,9 @@ function AdminSubmission({ submission, onReview, onToggleHidden, onToggleFeature
       ) : submission.status === 'approved' ? (
         <div className="approved-project-actions">
           {submission.reviewNote && <p className="review-note">Review note: {submission.reviewNote}</p>}
+          {submission.githubSyncStatus === 'synced' && <p className="review-note">GitHub Organization: Synced · <a className="text-link" href={submission.githubOrgRepoUrl} target="_blank" rel="noreferrer">{submission.githubOrgRepoName} ↗</a></p>}
           <div className="dialog-actions">
+            {submission.githubSyncStatus !== 'synced' && <button type="button" className="secondary-button" disabled={submission.githubSyncStatus === 'syncing'} onClick={() => onSync(submission)}>{submission.githubSyncStatus === 'syncing' ? 'Syncing…' : 'Sync to GitHub Organization'}</button>}
             <button type="button" className="secondary-button" onClick={() => onToggleHidden(submission)}>{submission.hidden ? 'Restore project' : 'Hide project'}</button>
             {isAdmin && <button type="button" className="secondary-button" onClick={() => onToggleFeatured(submission)}>{submission.featured ? 'Remove from showcase' : 'Add to showcase'}</button>}
             <button type="button" className="danger-button" onClick={() => onDelete(submission)}>Delete project</button>
@@ -146,6 +148,20 @@ function AdminPortal({ user, loading, onSignIn, onSignOut, onUserUpdated }) {
       setSubmissions((current) => current.filter((item) => item.id !== submission.id))
       setNotice('Project deleted.')
     } catch (cause) {
+      setError(cause.message)
+    }
+  }
+
+  const syncSubmission = async (submission) => {
+    setError('')
+    setNotice('')
+    setSubmissions((current) => current.map((item) => item.id === submission.id ? { ...item, githubSyncStatus: 'syncing' } : item))
+    try {
+      const result = await requestJson(`/api/admin/submissions/${encodeURIComponent(submission.id)}/github-sync`, { method: 'POST' })
+      setSubmissions((current) => current.map((item) => item.id === submission.id ? result.submission : item))
+      setNotice(result.alreadySynced ? 'Project was already synchronized.' : 'Project synchronized with GitHub Organization.')
+    } catch (cause) {
+      setSubmissions((current) => current.map((item) => item.id === submission.id ? { ...item, githubSyncStatus: 'failed' } : item))
       setError(cause.message)
     }
   }
@@ -257,7 +273,7 @@ function AdminPortal({ user, loading, onSignIn, onSignOut, onUserUpdated }) {
               <div className="admin-filters" aria-label="Filter submissions">
                 {reviewFilters.map((value) => <button key={value} type="button" className={filter === value ? 'is-active' : ''} onClick={() => setFilter(value)}>{value}</button>)}
               </div>
-              <div className="admin-list">{visibleSubmissions.length ? visibleSubmissions.map((submission) => <AdminSubmission key={submission.id} submission={submission} onReview={reviewSubmission} onToggleHidden={toggleHidden} onToggleFeatured={toggleFeatured} isAdmin={adminRoles.has(user.role)} onDelete={deleteSubmission} />) : <div className="empty-state-card">No {filter === 'all' ? '' : `${filter} `}submissions.</div>}</div>
+              <div className="admin-list">{visibleSubmissions.length ? visibleSubmissions.map((submission) => <AdminSubmission key={submission.id} submission={submission} onReview={reviewSubmission} onToggleHidden={toggleHidden} onToggleFeatured={toggleFeatured} isAdmin={adminRoles.has(user.role)} onDelete={deleteSubmission} onSync={syncSubmission} />) : <div className="empty-state-card">No {filter === 'all' ? '' : `${filter} `}submissions.</div>}</div>
             </section>
           ) : (
             <section className="admin-section">

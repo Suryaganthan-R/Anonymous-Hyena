@@ -6,7 +6,8 @@
 2. Copy `.env.example` to `.env`.
 3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.env` for Google sign-in.
 4. To enable GitHub account linking, create a GitHub OAuth App with callback URL `http://localhost:5173/auth/github/callback` and set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in `.env`.
-5. Start the frontend and auth server together with `npm run dev`.
+5. To enable approved-project organization synchronization, set `GITHUB_ORG` and a server-only `GITHUB_ORG_TOKEN` in `.env`. The token must belong to an organization member authorized to create repositories and write repository contents. Organization synchronization creates a public repository with a metadata README; it does not copy the submitted repository.
+6. Start the frontend and auth server together with `npm run dev`.
 
 Users sign in to Anonymous Hyena with Google, then connect GitHub separately while signed in. Provider secrets and OAuth tokens stay server-side; GitHub account details are stored with the local application database. For deployment, replace `APP_URL` and register the matching HTTPS callback URLs with each provider.
 

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { createOrganizationRepository, GithubOrgError } from './githubOrg.js'
 
 const staffRoles = new Set(['manager', 'admin', 'superadmin'])
 const adminRoles = new Set(['admin', 'superadmin'])
@@ -67,6 +68,11 @@ const reviewProject = (project) => ({
   createdAt: project.createdAt,
   reviewedAt: project.reviewedAt,
   reviewNote: project.reviewNote,
+  githubOrgRepoId: project.githubOrgRepoId,
+  githubOrgRepoName: project.githubOrgRepoName,
+  githubOrgRepoUrl: project.githubOrgRepoUrl,
+  githubSyncStatus: project.githubSyncStatus,
+  githubSyncedAt: project.githubSyncedAt,
 })
 
 const currentUser = (cookies, sessions, database) => {
@@ -211,6 +217,35 @@ export const handleApiRequest = async (request, response, cookies, sessions, dat
     return submission
       ? send(response, 200, { submission: reviewProject(submission) })
       : send(response, 404, { error: 'Submission not found.' })
+  }
+
+  const githubSyncMatch = pathname.match(/^\/api\/admin\/submissions\/([^/]+)\/github-sync$/)
+  if (method === 'POST' && githubSyncMatch) {
+    if (denied(response, user, staffRoles)) return true
+    const submissionId = decodeURIComponent(githubSyncMatch[1])
+    const submission = database.getSubmission(submissionId)
+    if (!submission) return send(response, 404, { error: 'Submission not found.' })
+    if (submission.status !== 'approved') return send(response, 409, { error: 'Only approved projects can be synchronized.' })
+    if (submission.githubSyncStatus === 'synced') {
+      return send(response, 200, { submission: reviewProject(submission), alreadySynced: true })
+    }
+    if (submission.githubSyncStatus === 'syncing') {
+      return send(response, 409, { error: 'Synchronization is already in progress.' })
+    }
+    if (!database.claimGithubSync(submissionId)) {
+      const current = database.getSubmission(submissionId)
+      return current?.githubSyncStatus === 'synced'
+        ? send(response, 200, { submission: reviewProject(current), alreadySynced: true })
+        : send(response, 409, { error: 'Synchronization is already in progress.' })
+    }
+    try {
+      const repository = await createOrganizationRepository(submission)
+      return send(response, 201, { submission: reviewProject(database.saveGithubSync(submissionId, repository)) })
+    } catch (cause) {
+      database.markGithubSyncFailed(submissionId)
+      if (cause instanceof GithubOrgError) return send(response, cause.status, { error: cause.message })
+      throw cause
+    }
   }
 
   if (method === 'PATCH' && pathname === '/api/admin/submissions/visibility') {
