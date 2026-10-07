@@ -47,6 +47,7 @@ const toSubmission = (row) => row && ({
   githubSyncStatus: row.github_sync_status,
   githubSyncedAt: row.github_synced_at,
   hidden: Boolean(row.hidden),
+  featured: Boolean(row.featured),
   createdAt: row.created_at,
   reviewedAt: row.reviewed_at,
 })
@@ -97,6 +98,7 @@ export class AppDatabase {
         reviewer_id TEXT REFERENCES users(google_id),
         review_note TEXT NOT NULL DEFAULT '',
         hidden INTEGER NOT NULL DEFAULT 0,
+        featured INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         reviewed_at TEXT
       );
@@ -124,6 +126,9 @@ export class AppDatabase {
     const submissionColumns = this.connection.prepare('PRAGMA table_info(submissions)').all()
     if (!submissionColumns.some((column) => column.name === 'hidden')) {
       this.connection.exec('ALTER TABLE submissions ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0')
+    }
+    if (!submissionColumns.some((column) => column.name === 'featured')) {
+      this.connection.exec('ALTER TABLE submissions ADD COLUMN featured INTEGER NOT NULL DEFAULT 0')
     }
     if (!submissionColumns.some((column) => column.name === 'github_org_repo_id')) {
       this.connection.exec('ALTER TABLE submissions ADD COLUMN github_org_repo_id TEXT')
@@ -273,6 +278,12 @@ export class AppDatabase {
   setSubmissionHidden(id, hidden) {
     const result = this.connection.prepare('UPDATE submissions SET hidden = ? WHERE id = ? AND status = \'approved\'')
       .run(hidden ? 1 : 0, id)
+    return result.changes ? this.listSubmissions('all').find((submission) => submission.id === id) : null
+  }
+
+  setSubmissionFeatured(id, featured) {
+    const result = this.connection.prepare('UPDATE submissions SET featured = ? WHERE id = ? AND status = \'approved\'')
+      .run(featured ? 1 : 0, id)
     return result.changes ? this.listSubmissions('all').find((submission) => submission.id === id) : null
   }
 

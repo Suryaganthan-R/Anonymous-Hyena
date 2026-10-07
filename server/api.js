@@ -50,6 +50,7 @@ const publicProject = (project) => ({
   contributors: 0,
   updated: project.pushedAt || project.createdAt,
   repoUrl: project.repoUrl,
+  featured: project.featured,
 })
 
 const reviewProject = (project) => ({
@@ -61,6 +62,7 @@ const reviewProject = (project) => ({
   repoOwner: project.repoOwner,
   status: project.status,
   hidden: project.hidden,
+  featured: project.featured,
   submitterName: project.submitterName,
   submitterGithub: project.submitterGithub,
   createdAt: project.createdAt,
@@ -253,6 +255,18 @@ export const handleApiRequest = async (request, response, cookies, sessions, dat
       return send(response, 400, { error: 'A project ID and hidden state are required.' })
     }
     const submission = database.setSubmissionHidden(body.id, body.hidden)
+    return submission
+      ? send(response, 200, { submission: reviewProject(submission) })
+      : send(response, 404, { error: 'Approved project not found.' })
+  }
+
+  if (method === 'PATCH' && pathname === '/api/admin/submissions/showcase') {
+    if (denied(response, user, adminRoles)) return true
+    const body = await readJson(request)
+    if (typeof body.id !== 'string' || typeof body.featured !== 'boolean') {
+      return send(response, 400, { error: 'A project ID and featured state are required.' })
+    }
+    const submission = database.setSubmissionFeatured(body.id, body.featured)
     return submission
       ? send(response, 200, { submission: reviewProject(submission) })
       : send(response, 404, { error: 'Approved project not found.' })

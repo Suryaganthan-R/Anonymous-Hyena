@@ -341,3 +341,34 @@ test('GitHub failures are sanitized and leave the project retryable', async () =
   assert.equal(database.getSubmission('organization-project').githubSyncStatus, 'failed')
   assert.doesNotMatch(JSON.stringify(result.body), /sensitive GitHub details/)
 })
+
+test('only admins can add approved projects to or remove them from Showcase', async () => {
+  database.createSubmission({
+    id: 'showcase-project', repoOwner: 'user', repoName: 'showcase-tool', repoUrl: 'https://github.com/user/showcase-tool',
+    description: 'A featured tool', repositoryDescription: '', category: 'Tool', defaultBranch: 'main',
+    pushedAt: new Date().toISOString(), submittedBy: 'user-id',
+  })
+  database.reviewSubmission('showcase-project', 'manager-id', 'approved', '')
+
+  const managerAttempt = await callApi({
+    method: 'PATCH', path: '/api/admin/submissions/showcase', session: 'manager-session',
+    body: { id: 'showcase-project', featured: true },
+  })
+  assert.equal(managerAttempt.status, 403)
+
+  const add = await callApi({
+    method: 'PATCH', path: '/api/admin/submissions/showcase', session: 'admin-session',
+    body: { id: 'showcase-project', featured: true },
+  })
+  assert.equal(add.status, 200)
+  assert.equal(add.body.submission.featured, true)
+  assert.equal((await callApi({ path: '/api/projects' })).body.projects[0].featured, true)
+
+  const remove = await callApi({
+    method: 'PATCH', path: '/api/admin/submissions/showcase', session: 'admin-session',
+    body: { id: 'showcase-project', featured: false },
+  })
+  assert.equal(remove.status, 200)
+  assert.equal(remove.body.submission.featured, false)
+  assert.equal((await callApi({ path: '/api/projects' })).body.projects[0].featured, false)
+})

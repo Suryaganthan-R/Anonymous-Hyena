@@ -805,6 +805,28 @@ button {
   gap: 18px;
 }
 
+.catalog-grid:has(> .catalog-card:nth-child(3):last-child) {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.project-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.project-pagination span {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.project-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .catalog-card {
   display: flex;
   flex-direction: column;
@@ -934,7 +956,11 @@ button {
   }
 
   .catalog-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .catalog-grid:has(> .catalog-card:nth-child(3):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -989,6 +1015,11 @@ button {
   .section-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .catalog-grid,
+  .catalog-grid:has(> .catalog-card:nth-child(3):last-child) {
+    grid-template-columns: 1fr;
   }
 
   .growth-flow {
